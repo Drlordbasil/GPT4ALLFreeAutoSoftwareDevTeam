@@ -8,7 +8,7 @@ from typing import List, Dict, Any
 logging.basicConfig(level=logging.INFO)
 
 def initialize_models():
-    """Initialize GPT4All and Embed4All models. Raises an exception if failed."""
+    """Initialize GPT4All and Embed4All models."""
     global model, embedder
     try:
         model = GPT4All("wizardlm-13b-v1.1-superhot-8k.ggmlv3.q4_0.bin")
@@ -19,7 +19,7 @@ def initialize_models():
         raise
 
 def generate_embedding(text: str) -> List[float]:
-    """Generate embeddings for the given text using Embed4All."""
+    """Generate embeddings for the given text."""
     try:
         return embedder.embed(text) if text else []
     except Exception as e:
@@ -27,7 +27,7 @@ def generate_embedding(text: str) -> List[float]:
         raise
 
 def safe_generate(prompt: str, max_tokens: int = 50) -> str:
-    """Safely generate text using GPT4All."""
+    """Safely generate text."""
     try:
         text = model.generate(prompt, max_tokens=max_tokens)
         return text if text else "No output from model"
@@ -36,7 +36,7 @@ def safe_generate(prompt: str, max_tokens: int = 50) -> str:
         raise
 
 class CEO:
-    """The CEO class responsible for generating tasks for the Software Engineer."""
+    """The CEO class."""
     def run(self, message_queue: Queue):
         try:
             ceo_request = safe_generate("Assign a task for the Software Engineer: ", 60)
@@ -47,8 +47,57 @@ class CEO:
             logging.error(f"Error in CEO run: {e}")
             raise
 
+class SoftwareEngineer:
+    """The Software Engineer class."""
+    def run(self, message_queue: Queue):
+        try:
+            ceo_message = message_queue.get()
+            ceo_request = ceo_message["task"]
+            sub_tasks = safe_generate(f"Break down the task '{ceo_request}' into sub-tasks: ", 120)
+            logging.info(f"Software Engineer has broken down the task into: {sub_tasks}")
+            print(colored(f"=== Software Engineer: {sub_tasks} ===", 'green'))
+            message_queue.put({"from": "Software Engineer", "sub_tasks": sub_tasks, "embedding": generate_embedding(sub_tasks)})
+        except Exception as e:
+            logging.error(f"Error in Software Engineer run: {e}")
+            raise
 
+class CodeGenerator:
+    """The Code Generator class."""
+    def run(self, message_queue: Queue):
+        try:
+            software_engineer_message = message_queue.get()
+            sub_tasks = software_engineer_message["sub_tasks"]
+            code_snippets = safe_generate(f"Generate code snippets for the sub-tasks: {sub_tasks}", 240)
+            logging.info(f"Code Generator has produced code snippets.")
+            print(colored(f"=== Code Generator: {code_snippets} ===", 'blue'))
+            message_queue.put({"from": "Code Generator", "code_snippets": code_snippets, "embedding": generate_embedding(code_snippets)})
+        except Exception as e:
+            logging.error(f"Error in Code Generator run: {e}")
+            raise
 
+class DataAnalyst:
+    """The Data Analyst class."""
+    def run(self, message_queue: Queue):
+        try:
+            insights = safe_generate("Analyze the data and provide insights: ", 120)
+            logging.info(f"Data Analyst has provided insights: {insights}")
+            print(colored(f"=== Data Analyst: {insights} ===", 'yellow'))
+            message_queue.put({"from": "Data Analyst", "insights": insights, "embedding": generate_embedding(insights)})
+        except Exception as e:
+            logging.error(f"Error in Data Analyst run: {e}")
+            raise
+
+class QAEngineer:
+    """The QA Engineer class."""
+    def run(self, message_queue: Queue):
+        try:
+            test_results = safe_generate("Perform tests and provide results: ", 120)
+            logging.info(f"QA Engineer has performed tests and provided results: {test_results}")
+            print(colored(f"=== QA Engineer: {test_results} ===", 'red'))
+            message_queue.put({"from": "QA Engineer", "test_results": test_results, "embedding": generate_embedding(test_results)})
+        except Exception as e:
+            logging.error(f"Error in QA Engineer run: {e}")
+            raise
 
 if __name__ == '__main__':
     try:
