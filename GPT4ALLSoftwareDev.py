@@ -47,7 +47,8 @@ class CEO:
             logging.error(f"Error in CEO run: {e}")
             raise
 
-# ... (Other classes remain the same but with added logging and error handling)
+
+
 
 if __name__ == '__main__':
     try:
