@@ -1,80 +1,103 @@
 from gpt4all import GPT4All, Embed4All
 from termcolor import colored
-from multiprocessing import Process, Manager
-from typing import List
+from multiprocessing import Process, Manager, Queue
+from typing import List, Dict, Any
 
-# Initialize GPT4All model
-model = GPT4All("wizardlm-13b-v1.1-superhot-8k.ggmlv3.q4_0.bin")
-
-# Initialize Embed4All
-embedder = Embed4All()
+# Initialize GPT4All and Embed4All models
+try:
+    model = GPT4All("wizardlm-13b-v1.1-superhot-8k.ggmlv3.q4_0.bin")
+    
+    embedder = Embed4All()
+except Exception as e:
+    print(f"Error initializing models: {e}")
 
 # Function to generate embeddings
 def generate_embedding(text: str) -> List[float]:
-    return embedder.embed(text)
+    try:
+        if text:
+            return embedder.embed(text)
+        return []
+    except Exception as e:
+        print(f"Error generating embedding: {e}")
+        return []
 
-# Project Manager Function
-def project_manager_function(message_queue):
-    print(colored("=== Project Manager ===", 'purple'))
-    project_plan = "Develop a complex Python program for real-time data analytics with security measures."
-    message_queue.put({"from": "Project Manager", "project_plan": project_plan, "embedding": generate_embedding(project_plan)})
+# Function to safely generate text from the model
+def safe_generate(prompt: str, max_tokens: int = 50) -> str:
+    try:
+        text = model.generate(prompt, max_tokens=max_tokens)
+        return text if text else "No output from model"
+    except Exception as e:
+        print(f"Error generating text: {e}")
+        return "Error generating text"
 
-# CEO Function
-def ceo_function(message_queue):
-    print(colored("=== CEO ===", 'yellow'))
-    ceo_request = "Integrate machine learning algorithms for predictive analytics."
-    message_queue.put({"from": "CEO", "task": ceo_request, "embedding": generate_embedding(ceo_request)})
+# CEO Class
+class CEO:
+    def run(self, message_queue: Queue):
+        try:
+            ceo_request = safe_generate("Assign a task for the Software Engineer: ", 60)
+            print(colored(f"=== CEO: {ceo_request} ===", 'yellow'))
+            message_queue.put({"from": "CEO", "task": ceo_request, "embedding": generate_embedding(ceo_request)})
+        except Exception as e:
+            print(f"Error in CEO run: {e}")
 
-# Software Engineer Function
-def software_engineer_function(message_queue):
-    print(colored("=== Software Engineer ===", 'green'))
-    ceo_message = message_queue.get()
-    ceo_request = ceo_message["task"]
-    sub_tasks = ["Set up data pipeline", "Implement real-time analytics", "Integrate ML algorithms", "Optimize performance"]
-    message_queue.put({"from": "Software Engineer", "sub_tasks": sub_tasks, "embedding": generate_embedding(str(sub_tasks))})
+# Software Engineer Class
+class SoftwareEngineer:
+    def run(self, message_queue: Queue):
+        try:
+            ceo_message = message_queue.get()
+            ceo_request = ceo_message["task"]
+            sub_tasks = safe_generate(f"Break down the task '{ceo_request}' into sub-tasks: ", 120)
+            print(colored(f"=== Software Engineer: {sub_tasks} ===", 'green'))
+            message_queue.put({"from": "Software Engineer", "sub_tasks": sub_tasks, "embedding": generate_embedding(sub_tasks)})
+        except Exception as e:
+            print(f"Error in Software Engineer run: {e}")
 
-# Data Scientist Function
-def data_scientist_function(message_queue):
-    print(colored("=== Data Scientist ===", 'cyan'))
-    data_tasks = ["Data preprocessing", "Feature extraction", "Model training", "Model evaluation"]
-    message_queue.put({"from": "Data Scientist", "data_tasks": data_tasks, "embedding": generate_embedding(str(data_tasks))})
+# Code Generator Class
+class CodeGenerator:
+    def run(self, message_queue: Queue):
+        try:
+            software_engineer_message = message_queue.get()
+            sub_tasks = software_engineer_message["sub_tasks"]
+            code_snippets = safe_generate(f"Generate code snippets for the sub-tasks: {sub_tasks}", 240)
+            print(colored(f"=== Code Generator: {code_snippets} ===", 'blue'))
+            message_queue.put({"from": "Code Generator", "code_snippets": code_snippets, "embedding": generate_embedding(code_snippets)})
+        except Exception as e:
+            print(f"Error in Code Generator run: {e}")
 
-# DevOps Engineer Function
-def devops_engineer_function(message_queue):
-    print(colored("=== DevOps Engineer ===", 'orange'))
-    deployment_steps = ["Set up CI/CD pipeline", "Dockerize application", "Kubernetes orchestration", "Cloud deployment"]
-    message_queue.put({"from": "DevOps Engineer", "deployment_steps": deployment_steps, "embedding": generate_embedding(str(deployment_steps))})
+# Data Analyst Class
+class DataAnalyst:
+    def run(self, message_queue: Queue):
+        try:
+            insights = safe_generate("Analyze the data and provide insights: ", 120)
+            print(colored(f"=== Data Analyst: {insights} ===", 'yellow'))
+            message_queue.put({"from": "Data Analyst", "insights": insights, "embedding": generate_embedding(insights)})
+        except Exception as e:
+            print(f"Error in Data Analyst run: {e}")
 
-# Security Analyst Function
-def security_analyst_function(message_queue):
-    print(colored("=== Security Analyst ===", 'grey'))
-    security_measures = ["Implement OAuth2.0", "Data encryption", "Intrusion detection system", "Regular security audits"]
-    message_queue.put({"from": "Security Analyst", "security_measures": security_measures, "embedding": generate_embedding(str(security_measures))})
+# QA Engineer Class
+class QAEngineer:
+    def run(self, message_queue: Queue):
+        try:
+            test_results = safe_generate("Perform tests and provide results: ", 120)
+            print(colored(f"=== QA Engineer: {test_results} ===", 'red'))
+            message_queue.put({"from": "QA Engineer", "test_results": test_results, "embedding": generate_embedding(test_results)})
+        except Exception as e:
+            print(f"Error in QA Engineer run: {e}")
 
+# Main Execution
 if __name__ == '__main__':
-    with Manager() as manager:
-        message_queue = manager.Queue()
+    try:
+        with Manager() as manager:
+            message_queue = manager.Queue()
+            roles = [CEO(), SoftwareEngineer(), CodeGenerator(), DataAnalyst(), QAEngineer()]
 
-        project_manager_thread = Process(target=project_manager_function, args=(message_queue,))
-        project_manager_thread.start()
-        project_manager_thread.join()
+            for role in roles:
+                role_thread = Process(target=role.run, args=(message_queue,))
+                role_thread.start()
+                role_thread.join()
 
-        ceo_thread = Process(target=ceo_function, args=(message_queue,))
-        ceo_thread.start()
-        ceo_thread.join()
-
-        software_engineer_thread = Process(target=software_engineer_function, args=(message_queue,))
-        software_engineer_thread.start()
-        software_engineer_thread.join()
-
-        data_scientist_thread = Process(target=data_scientist_function, args=(message_queue,))
-        data_scientist_thread.start()
-        data_scientist_thread.join()
-
-        devops_engineer_thread = Process(target=devops_engineer_function, args=(message_queue,))
-        devops_engineer_thread.start()
-        devops_engineer_thread.join()
-
-        security_analyst_thread = Process(target=security_analyst_function, args=(message_queue,))
-        security_analyst_thread.start()
-        security_analyst_thread.join()
+            code_generator_message = message_queue.get()
+            code_snippets = code_generator_message["code_snippets"]
+            print(colored(f"=== Generated Python Program: {code_snippets} ===", 'magenta'))
+    except Exception as e:
+        print(f"Error in main execution: {e}")
